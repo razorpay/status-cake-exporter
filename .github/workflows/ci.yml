@@ -14,21 +14,19 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     steps:
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0    
 
-    - name: Start PMG (SafeDep) 🛡️
+    - name: Setup PMG proxy
+      id: pmg-setup
       uses: safedep/pmg@v1
       with:
         server-mode: true
         api-key: ${{ secrets.PMG_PUBLIC_REPOS_TOKEN }}
         tenant-id: ${{ secrets.PMG_TENANT_ID }}
-
+      
     - name: Set up Python 🐍
       uses: actions/setup-python@v2
       with:
@@ -95,6 +93,11 @@ jobs:
         body: ${{steps.build_changelog.outputs.changelog}}
         token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Enforce PMG policy 🛡️
+    - name: Enforce PMG policy
       if: always()
-      run: pmg proxy stop --fail-on-violation
+      run: |
+        if [ "${{ steps.pmg-setup.outcome }}" = "success" ]; then
+          pmg proxy stop --fail-on-violation
+        else
+          pmg proxy stop || true
+        fi
